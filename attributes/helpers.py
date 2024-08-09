@@ -11,8 +11,9 @@ import traceback
 import re
 import logging
 
-logging.basicConfig(filename='attribute_exceptions.log', level=logging.INFO, 
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+def setup_logging(property):
+    logging.basicConfig(filename=f'attribute_exceptions_{property}.log', level=logging.INFO, 
+                        format='%(asctime)s - %(levelname)s - %(message)s')
 
 def check_and_log_exceptions(driver, remove_base_xpath, target_attributes, site_number):
     selected_attributes = get_selected_attributes(driver, remove_base_xpath)
@@ -42,16 +43,6 @@ def wait_and_send_keys(driver, by, value, keys, timeout=10):
     except Exception as e:
         print(f"Error in wait_and_send_keys: {str(e)}")
         raise
-
-def check_and_close_popup(driver):
-    try:
-        popup_button = WebDriverWait(driver, 3).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, ".footerButtons > .btn"))
-        )
-        popup_button.click()
-        print("Popup closed.")
-    except TimeoutException:
-        print("No popup found.")
 
 def login_with_2fa(driver, username, password):
     try:
@@ -198,7 +189,7 @@ def get_total_records(driver):
     except Exception as e:
         print(f"Error getting total records: {str(e)}")
         return 0
-
+    
 def find_next_site(driver, current_number, container_xpath, max_attempts=40, lookahead=5):
     total_records = get_total_records(driver)  # Get the total records
     processed_rows_count = 0
@@ -228,8 +219,7 @@ def find_next_site(driver, current_number, container_xpath, max_attempts=40, loo
 
     return None, None
 
-
-def process_properties(driver, start_number=1):
+def process_properties(driver, attributes_to_add, attributes_to_remove, start_number=1):
     current_number = start_number - 1
     container_xpath = "//*[@id='MainWindow']/div/div[2]/div/div/div[2]"
     total_records = get_total_records(driver)
@@ -264,8 +254,6 @@ def process_properties(driver, start_number=1):
         except Exception as e:
             print(f"Failed to save changes for site number {next_number}. Error: {str(e)}")
 
-        check_and_close_popup(driver)
-
         try:
             WebDriverWait(driver, 10).until(
                 EC.invisibility_of_element_located((By.XPATH, "//div[contains(@class, 'modal-dialog')]"))
@@ -276,58 +264,3 @@ def process_properties(driver, start_number=1):
 
         current_number = next_number
         time.sleep(0.5)
-
-def automate_process(username, password, start_number=1):
-    driver = None
-    try:
-        driver = webdriver.Chrome()
-        driver.maximize_window()
-
-        login_with_2fa(driver, username, password)
-
-        driver.get("https://app13.rmscloud.com/#!/Setup/Category")
-        print("Navigated to Setup/Category page")
-
-        WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.XPATH, "//*[@id='MainWindow']/div/div[2]/div/div/div[2]/div"))
-        )
-        print("Main window loaded")
-
-        wait_for_dropdown_and_select(driver, 'Champions Run')
-
-        process_properties(driver, start_number)
-
-        print("Process completed successfully")
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-        print("Traceback:")
-        print(traceback.format_exc())
-    finally:
-        if driver:
-            driver.quit()
-        print("Script execution completed.")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="RMS Cloud Automation Script")
-    parser.add_argument("username", help="Your RMS Cloud username")
-    parser.add_argument("password", help="Your RMS Cloud password")
-    parser.add_argument("--start", type=int, default=1, help="Starting site number (default: 1)")
-    args = parser.parse_args()
-
-    attributes_to_add = [
-        "30 amp max electric service",
-        "50 amp max electric service",
-        "Picnic Table",
-        "Pet Friendly",
-        "Wifi",
-        "Concrete Pad"
-    ]
-
-    attributes_to_remove = [
-        "BBQ Grill",
-        "Outdoor Covered Sitting Area",
-        "paved",
-        "Fireplace/Firepit"
-    ]
-
-    automate_process(args.username, args.password, args.start)
