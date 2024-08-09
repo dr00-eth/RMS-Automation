@@ -4,15 +4,16 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import traceback
-import helpers
+import includes.helpers as helpers
+from includes import globals
 
-def automate_process(username, password, property, start_number=1):
+def automate_process(username, password, property, attr_logger, start_number=1):
     driver = None
     try:
         driver = webdriver.Chrome()
         driver.maximize_window()
 
-        helpers.login_with_2fa(driver, username, password)
+        globals.login_with_2fa(driver, username, password)
 
         driver.get("https://app13.rmscloud.com/#!/Setup/Category")
         print("Navigated to Setup/Category page")
@@ -24,7 +25,7 @@ def automate_process(username, password, property, start_number=1):
 
         helpers.wait_for_dropdown_and_select(driver, property)
 
-        helpers.process_properties(driver, attributes_to_add, attributes_to_remove, start_number)
+        helpers.process_properties(driver, attributes_to_add, attributes_to_remove, attr_logger, start_number)
 
         print("Process completed successfully")
     except Exception as e:
@@ -59,6 +60,6 @@ if __name__ == "__main__":
         "paved",
         "Fireplace/Firepit"
     ]
-    
-    helpers.setup_logging(args.property)
-    automate_process(args.username, args.password, args.property, args.start)
+
+    attr_logger, app_logger = helpers.setup_logging(args.property)
+    automate_process(args.username, args.password, args.property, attr_logger, args.start)

@@ -6,30 +6,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 import time
 import re
-
-def wait_and_click(driver, by, value, timeout=10):
-    element = WebDriverWait(driver, timeout).until(
-        EC.element_to_be_clickable((by, value))
-    )
-    element.click()
-    return element
-
-def login_with_2fa(driver, username, password):
-    driver.get("https://app13.rmscloud.com/Login")
-    
-    driver.find_element(By.CSS_SELECTOR, ".clientId").send_keys("19681")
-    driver.find_element(By.CSS_SELECTOR, ".username").send_keys(username)
-    driver.find_element(By.CSS_SELECTOR, ".pw-field").send_keys(password)
-    
-    wait_and_click(driver, By.ID, "Login")
-
-    print("2FA may be required. Please complete the 2FA process if prompted.")
-    print("Press Enter when you have completed the 2FA process and are logged in.")
-    input()
-    print("Continuing after 2FA...")
+import includes.globals as globals
 
 def open_display_order_panel(driver):
-    wait_and_click(driver, By.XPATH, '//*[@id="MainWindow"]/div/div[1]/div[2]/a[1]')
+    globals.wait_and_click(driver, By.XPATH, '//*[@id="MainWindow"]/div/div[1]/div[2]/a[1]')
     print("Display Order panel opened")
     time.sleep(2)  # Short wait for panel to load
 
@@ -55,7 +35,7 @@ def move_row_to_position(driver, row, current_position, target_position):
     button_xpath = f'//*[@id="CategoryDisplayOrder"]/div[2]/div/div[1]/div/div[1]/div[2]/a[{1 if direction == "up" else 2}]'
     
     for i in range(moves):
-        wait_and_click(driver, By.XPATH, button_xpath)
+        globals.wait_and_click(driver, By.XPATH, button_xpath)
         #print(f"  Click {direction} button ({i+1}/{moves})")
     
     print(f"Moved site from position {current_position} to {target_position}")
@@ -94,7 +74,7 @@ def automate_process(username, password):
     driver = webdriver.Chrome()
     try:
         driver.maximize_window()
-        login_with_2fa(driver, username, password)
+        globals.login_with_2fa(driver, username, password)
         
         driver.get("https://app13.rmscloud.com/#!/Setup/Category")
         print("Navigated to Setup/Category page")

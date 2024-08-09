@@ -1,86 +1,42 @@
-import argparse
-from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.support.ui import Select
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import time
-import traceback
 import re
 import logging
+import includes.globals as globals
 
 def setup_logging(property):
-    logging.basicConfig(filename=f'attribute_exceptions_{property}.log', level=logging.INFO, 
-                        format='%(asctime)s - %(levelname)s - %(message)s')
+    # Setup for attributes logger
+    attr_logger = logging.getLogger('attributes')
+    attr_logger.setLevel(logging.INFO)
+    attr_handler = logging.FileHandler(f'attribute_exceptions_{property}.log')
+    attr_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    attr_handler.setFormatter(attr_formatter)
+    attr_logger.addHandler(attr_handler)
 
-def check_and_log_exceptions(driver, remove_base_xpath, target_attributes, site_number):
+    # Setup for application logger (optional, for other parts of your application)
+    app_logger = logging.getLogger('application')
+    app_logger.setLevel(logging.WARNING)
+    app_handler = logging.FileHandler(f'application_{property}.log')
+    app_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    app_handler.setFormatter(app_formatter)
+    app_logger.addHandler(app_handler)
+
+    # Prevent loggers from propagating to the root logger
+    attr_logger.propagate = False
+    app_logger.propagate = False
+
+    return attr_logger, app_logger
+
+def check_and_log_exceptions(driver, remove_base_xpath, target_attributes, site_number, attr_logger):
     selected_attributes = get_selected_attributes(driver, remove_base_xpath)
     for attr in selected_attributes:
         if attr not in target_attributes:
             message = f"Site {site_number}: Exception: Attribute '{attr}' is selected but not in target list."
-            logging.info(message)
-
-def wait_and_click(driver, by, value, timeout=10):
-    try:
-        element = WebDriverWait(driver, timeout).until(
-            EC.element_to_be_clickable((by, value))
-        )
-        element.click()
-        return element
-    except Exception as e:
-        print(f"Error in wait_and_click: {str(e)}")
-        raise
-
-def wait_and_send_keys(driver, by, value, keys, timeout=10):
-    try:
-        element = WebDriverWait(driver, timeout).until(
-            EC.presence_of_element_located((by, value))
-        )
-        element.send_keys(keys)
-        return element
-    except Exception as e:
-        print(f"Error in wait_and_send_keys: {str(e)}")
-        raise
-
-def login_with_2fa(driver, username, password):
-    try:
-        driver.get("https://app13.rmscloud.com/Login")
-        
-        wait_and_send_keys(driver, By.CSS_SELECTOR, ".clientId", "19681")
-        wait_and_send_keys(driver, By.CSS_SELECTOR, ".username", username)
-        wait_and_send_keys(driver, By.CSS_SELECTOR, ".pw-field", password)
-        
-        wait_and_click(driver, By.ID, "Login")
-
-        print("2FA may be required. Please complete the 2FA process if prompted.")
-        print("Press Enter when you have completed the 2FA process and are logged in.")
-        input()
-        print("Continuing after 2FA...")
-    except Exception as e:
-        print(f"Error during login: {str(e)}")
-        raise
-
-def wait_for_dropdown_and_select(driver, option_text, max_attempts=5, wait_time=2):
-    for attempt in range(max_attempts):
-        try:
-            time.sleep(1)
-            dropdown = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//select[contains(@class, 'ng-valid')]"))
-            )
-            select = Select(dropdown)
-            select.select_by_visible_text(option_text)
-            print(f"Selected '{option_text}' from dropdown.")
-            time.sleep(3)  # Wait for page to update after selection
-            return
-        except (NoSuchElementException, StaleElementReferenceException) as e:
-            if attempt < max_attempts - 1:
-                print(f"Dropdown not ready, waiting and retrying... (Attempt {attempt + 1})")
-                time.sleep(wait_time)
-            else:
-                print(f"Failed to select from dropdown after multiple attempts. Error: {str(e)}")
-                raise
+            attr_logger.info(message)
 
 def switch_to_attributes_tab(driver, max_attempts=3):
     for attempt in range(max_attempts):
@@ -219,7 +175,7 @@ def find_next_site(driver, current_number, container_xpath, max_attempts=40, loo
 
     return None, None
 
-def process_properties(driver, attributes_to_add, attributes_to_remove, start_number=1):
+def process_properties(driver, attributes_to_add, attributes_to_remove, attr_logger, start_number=1):
     current_number = start_number - 1
     container_xpath = "//*[@id='MainWindow']/div/div[2]/div/div/div[2]"
     total_records = get_total_records(driver)
@@ -246,10 +202,10 @@ def process_properties(driver, attributes_to_add, attributes_to_remove, start_nu
         for attr in attributes_to_remove:
             remove_attribute(driver, attr, remove_base_xpath)
 
-        check_and_log_exceptions(driver, remove_base_xpath, attributes_to_add, next_number)
+        check_and_log_exceptions(driver, remove_base_xpath, attributes_to_add, next_number, attr_logger)
 
         try:
-            wait_and_click(driver, By.CSS_SELECTOR, ".icon > .fa-floppy-disk-circle-xmark")
+            globals.wait_and_click(driver, By.CSS_SELECTOR, ".icon > .fa-floppy-disk-circle-xmark")
             print("Saved changes")
         except Exception as e:
             print(f"Failed to save changes for site number {next_number}. Error: {str(e)}")
