@@ -10,7 +10,7 @@ Using VS Code, create a venv and install the packages from requirements.txt
 This script parses through all sites for a given property and has the ability to add/remove attributes to each site. As it goes it will log attribute exceptions (attributes assigned to a given site that were NOT defined in the list of ones that were to be allocated) to a file.
 
 Usage: `python attributes_processor.py RMS_UNAME RMS_PWD "Property Name" (optional: --start XXX)`
-Use the optional `--start` argument to jump to a site number higher than 1
+Property Name argument **MUST** match exactly what is displayed in the RMS property dropdown. Use the optional `--start` argument to jump to a site number higher than 1
 After sign-in, wait to clear trust date pop-up and go back to script terminal and press enter.
 
 ## Site Order by Numeric
