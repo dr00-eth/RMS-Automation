@@ -7,6 +7,7 @@ import time
 from includes.SeleniumHelper import SeleniumHelper
 from includes.AttributeManager import AttributeManager
 from includes.SiteProcessor import SiteProcessor
+from includes.TaxManager import TaxManager
 from includes import globals, helpers
 
 def automate_process(username: str, password: str, property_name: str, attr_logger: logging.Logger, start_number: int = 1):
@@ -16,7 +17,8 @@ def automate_process(username: str, password: str, property_name: str, attr_logg
         driver.maximize_window()
         selenium_helper = SeleniumHelper(driver)
         attribute_manager = AttributeManager(selenium_helper)
-        site_processor = SiteProcessor(selenium_helper, attribute_manager, attr_logger)
+        tax_manager = TaxManager(selenium_helper)
+        site_processor = SiteProcessor(selenium_helper, attribute_manager, tax_manager, attr_logger)
 
         globals.login_with_2fa_and_wait(driver, username, password)
 
@@ -32,12 +34,12 @@ def automate_process(username: str, password: str, property_name: str, attr_logg
         container_xpath = '//*[@id="MainWindow"]/div/div[2]/div/div/div[2]/div'
 
         while True:
-            next_row, next_number, _ = site_processor.find_next_site(current_number, container_xpath)
+            next_row, next_number, site_name = site_processor.find_next_site(current_number, container_xpath)
             if not next_row:
                 print(f"No more sites found after number {current_number}. Ending process.")
                 break
 
-            site_processor.process_site_attrs(next_row, next_number, attributes_to_add, attributes_to_remove)
+            site_processor.process_site_taxes(next_row, next_number, site_name, taxes_to_add, taxes_to_remove)
             current_number = next_number
 
         print("Process completed successfully")
@@ -58,13 +60,17 @@ if __name__ == "__main__":
     parser.add_argument("--start", type=int, default=1, help="Starting site number (default: 1)")
     args = parser.parse_args()
 
-    attributes_to_add = [
-            "Pet Friendly",
-            # Add other attributes as needed
-        ]
+    taxes_to_add = [
+        "Sales Tax - 8.25%",  # Applies to all sites
+        {"tax": "Resort Fee - Vessel Home - 129.00", "include": ["Vessel"]},
+        {"tax": "Resort Fee - RV - 29.00", "exclude": ["Vessel"]},
+        # Add other taxes as needed
+    ]
 
-    attributes_to_remove = [
-        # Add attributes to remove as needed
+    taxes_to_remove = [
+        "Occupancy Tax - 13%",
+        {"tax": "Resort Fee - Vessel Home - 129.00", "exclude": ["Vessel"]},
+        {"tax": "Resort Fee - RV - 29.00", "include": ["Vessel"]},
     ]
 
     attr_logger, _ = helpers.setup_logging(args.property)

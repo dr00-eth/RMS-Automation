@@ -25,5 +25,11 @@ This script is not used often, but if there is a need to bulk delete a given rat
 Usage `python bulk_rate_delete.py RMS_UNAME RMS_PWD`
 After sign-in, navigate to `Rate Manager`, select the correct property, open the `Rate Lookup` window, filter by the rate to be removed, then go back to the script terminal and press enter.
 
+## Bulk Rate Table Re-assign
+This script is not used often, but if there is a need to bulk rate re-assignement of a given rate table between properties you can use this.
+
+Usage FIRST UPDATE `property_to_select` & `property_to_select` to match the EXACT property names, then: `python bulk_rate_table_reassign.py RMS_UNAME RMS_PWD`
+After sign-in, navigate to `Rate Manager`, select the correct property, open the `Rate Tables` window, filter by the property & rate name to be moved, then go back to the script terminal and press enter.
+
 ## Automation Template
 This is a boilerplate to speed up the process of creating new automations. Just create a copy for a given task and insert logic functions in the placeholder.

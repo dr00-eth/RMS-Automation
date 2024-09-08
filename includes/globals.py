@@ -1,3 +1,4 @@
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -33,7 +34,7 @@ def wait_and_click(driver, by, value, timeout=10):
     element.click()
     return element
 
-def login_with_2fa(driver, username, password):
+def login_with_2fa_and_wait(driver: webdriver.Chrome, username, password):
     driver.get(constants.LOGIN_URL)
     
     driver.find_element(By.CSS_SELECTOR, ".clientId").send_keys(constants.CLIENT_ID)
@@ -43,6 +44,6 @@ def login_with_2fa(driver, username, password):
     wait_and_click(driver, By.ID, "Login")
 
     print("2FA may be required. Please complete the 2FA process if prompted.")
-    print("Navigate to the correct page and press Enter when you're ready to start the deletion process.")
+    print("Navigate to the correct page and press Enter when you're ready to start the automation process.")
     input()
-    print("Starting row deletion process...")
+    print("Starting automation process...")

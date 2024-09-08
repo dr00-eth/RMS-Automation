@@ -12,7 +12,7 @@ def automate_process(username, password):
     driver = webdriver.Chrome()
     try:
         driver.maximize_window()
-        globals.login_with_2fa(driver, username, password)
+        globals.login_with_2fa_and_wait(driver, username, password)
 
         #LOGIC GOES HERE
 
