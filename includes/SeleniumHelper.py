@@ -29,6 +29,7 @@ class SeleniumHelper:
                 EC.element_to_be_clickable((by, value))
             )
         except TimeoutException:
+            print(f"Timeout waiting for element to be clickable: {value}")
             return None
 
     def wait_and_click(self, by: By, value: str, double_click: bool = False, timeout: int = 10, max_attempts: int = 10, retry_interval: float = 1.0) -> bool:
@@ -55,6 +56,17 @@ class SeleniumHelper:
         
         print(f"Failed to {'double-click' if double_click else 'click'} element after {max_attempts} attempts: {value}")
         return False
+    
+    def is_element_visible(self, by: By, value: str, timeout: int = 0) -> bool:
+        try:
+            element = WebDriverWait(self.driver, timeout).until(
+                EC.visibility_of_element_located((by, value))
+            )
+            return element.is_displayed()
+        except TimeoutException:
+            return False
+        except NoSuchElementException:
+            return False
 
     def wait_for_visibility(self, by: By, value: str, timeout: int = 20) -> Optional[WebElement]:
         try:
@@ -72,6 +84,32 @@ class SeleniumHelper:
             )
         except TimeoutException:
             print(f"Timeout waiting for element to be invisible: {value}")
+            return False
+        
+    def wait_until_stable(self, by: By, value: str, timeout: float = 10, poll_frequency: float = 0.5) -> Optional[WebElement]:
+        end_time = time.time() + timeout
+        last_exception = None
+        while time.time() < end_time:
+            try:
+                element = self.driver.find_element(by, value)
+                return element
+            except StaleElementReferenceException as e:
+                last_exception = e
+            time.sleep(poll_frequency)
+        
+        if last_exception:
+            raise last_exception
+        raise TimeoutException(f"Element {value} not stable after {timeout} seconds")
+
+    def is_element_visible_by_dimensions(self, by: By, value: str, timeout: int = 5) -> bool:
+        try:
+            element = WebDriverWait(self.driver, timeout).until(
+                EC.presence_of_element_located((by, value))
+            )
+            size = element.size
+            print(f"Size: {element.size}")
+            return size['height'] > 0 and size['width'] > 0 and size['height'] != 100 and size['width'] != 100
+        except (TimeoutException, NoSuchElementException):
             return False
 
     def select_from_dropdown(self, by, value, option_text, max_attempts=5, wait_time=2):

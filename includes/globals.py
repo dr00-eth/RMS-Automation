@@ -47,3 +47,18 @@ def login_with_2fa_and_wait(driver: webdriver.Chrome, username, password):
     print("Navigate to the correct page and press Enter when you're ready to start the automation process.")
     input()
     print("Starting automation process...")
+
+def login_training_with_2fa_and_wait(driver: webdriver.Chrome, username, password):
+    driver.get(constants.LOGIN_URL)
+    
+    driver.find_element(By.CSS_SELECTOR, ".clientId").send_keys(constants.CLIENT_ID)
+    driver.find_element(By.CSS_SELECTOR, ".username").send_keys(username)
+    driver.find_element(By.CSS_SELECTOR, ".pw-field").send_keys(password)
+    
+    wait_and_click(driver, By.ID, "LoginTraining")
+    wait_and_click(driver, By.XPATH, "/html/body/div[8]/div[2]/div/a[1]")
+
+    print("2FA may be required. Please complete the 2FA process if prompted.")
+    print("Navigate to the correct page and press Enter when you're ready to start the automation process.")
+    input()
+    print("Starting automation process...")

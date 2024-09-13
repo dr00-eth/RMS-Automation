@@ -1,5 +1,5 @@
 .venv
-attribute_exceptions_*.log
-application_*.log
 __pycache__
 .DS_Store
+*.csv
+*.log
