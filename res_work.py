@@ -7,6 +7,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException,
 from selenium.webdriver.remote.webelement import WebElement
 import csv
 import os
+import re
 import time
 import logging
 import traceback
@@ -107,20 +108,30 @@ class ResWork:
                     print(f"Processing reservation {updated_count} of {total_to_update}: {reservation_id}")
                     try:
                         updated_row = self.process_single_reservation(reservation_id, None, row)
-                        writer.writerow(updated_row)
+                        cleaned_row = self.clean_row_data(updated_row)
+                        writer.writerow(cleaned_row)
                         # Incrementally update the main file
-                        self.update_main_file(updated_row)
+                        self.update_main_file(cleaned_row)
                     except Exception as e:
                         print(f"Error processing reservation {reservation_id}: {str(e)}")
                         print(f"Last successfully processed reservation: {reservation_id}")
-                        # Stop processing and exit
-                        return
+                        # Write the original row if there's an error
+                        writer.writerow(self.clean_row_data(row))
                 else:
-                    writer.writerow(row)
+                    writer.writerow(self.clean_row_data(row))
 
         print(f"Update completed. Processed {updated_count} reservations.")
         # Clean up the temporary file
         os.remove(self.temp_filename)
+
+    def clean_row_data(self, row: Dict[str, str]) -> Dict[str, str]:
+        cleaned_row = {}
+        for field in self.csv_headers:
+            if field in row:
+                cleaned_row[field] = row[field]
+            else:
+                cleaned_row[field] = ""
+        return cleaned_row
 
     def update_main_file(self, updated_row):
         with open(self.csv_filename, 'r') as file:
@@ -128,7 +139,7 @@ class ResWork:
 
         for i, row in enumerate(rows):
             if row['ReservationId'] == updated_row['ReservationId']:
-                rows[i] = updated_row
+                rows[i] = self.clean_row_data(updated_row)
                 break
 
         with open(self.csv_filename, 'w', newline='') as file:
@@ -188,14 +199,36 @@ class ResWork:
                         existing_data[field] = reservation_data.get(field, "")
                 reservation_data = existing_data
 
-            # Only process guest bill if it's a new reservation or missing ItemizedBill
-            if not existing_data or not existing_data['ItemizedBill']:
+            # Only process guest bill if it's a new reservation or missing ItemizedBill,
+            # and the reservation status is not "Cancelled"
+            if (not existing_data or not existing_data.get('ItemizedBill')) and reservation_data.get('ResStatus') != "Cancelled":
                 self.process_guest_bill(reservation_data)
+            elif reservation_data.get('ResStatus') == "Cancelled":
+                print(f"Skipping guest bill processing for cancelled reservation {reservation_id}")
+
+            # Remove None key if present
+            if None in reservation_data:
+                print(f"Warning: None key found in reservation_data for reservation {reservation_id}")
+                del reservation_data[None]
+
+            # Ensure all required fields are present and remove any unexpected fields
+            cleaned_data = {}
+            for field in self.csv_headers:
+                if field in reservation_data:
+                    cleaned_data[field] = reservation_data[field]
+                else:
+                    print(f"Warning: Missing field '{field}' for reservation {reservation_id}")
+                    cleaned_data[field] = ""
 
             if writer:
-                writer.writerow(reservation_data)
+                try:
+                    writer.writerow(cleaned_data)
+                except ValueError as e:
+                    print(f"Error writing row for reservation {reservation_id}: {str(e)}")
+                    print(f"Reservation data: {cleaned_data}")
+                    raise
 
-            return reservation_data
+            return cleaned_data
         return {field: "" for field in self.csv_headers}  # Return empty data if reservation not loaded
 
     def search_reservation(self, reservation_id: str):
@@ -294,13 +327,27 @@ class ResWork:
         
         return data
 
+    def sanitize_text(self, text: str) -> str:
+        if text is None:
+            return ""
+        # Replace newlines with spaces
+        text = re.sub(r'\s+', ' ', text)
+        # Remove any non-printable characters
+        text = ''.join(char for char in text if char.isprintable())
+        # Escape double quotes
+        text = text.replace('"', '""')
+        # Enclose in double quotes if contains comma or double quote
+        if ',' in text or '"' in text:
+            text = f'"{text}"'
+        return text.strip()
+
     def get_element_text(self, by: By, value: str) -> str:
         element = self.selenium_helper.wait_for_element(by, value)
-        return element.text if element else ""
+        return self.sanitize_text(element.text) if element else ""
 
     def get_element_value(self, by: By, value: str) -> str:
         element = self.selenium_helper.wait_for_element(by, value)
-        return element.get_attribute("value") if element else ""
+        return self.sanitize_text(element.get_attribute("value")) if element else ""
 
     def process_guest_bill(self, reservation_data):
         try:
@@ -325,21 +372,17 @@ class ResWork:
     def extract_itemized_bill(self, accounts_data_grid: WebElement):
         line_items = accounts_data_grid.find_element(By.XPATH, './/div[contains(@class, "GridLiteRowsContainer")]')
         rows = line_items.find_elements(By.XPATH, './/div[contains(@class, "GridLiteRow")]')
-        #print(f"Found {len(rows)} rows in the accounts data grid")
         itemized_bill = []
 
         for index, row in enumerate(rows):
             columns = row.find_elements(By.XPATH, './/div[contains(@class, "GridLiteColumn")]')
-            #print(f"Row {index + 1} has {len(columns)} columns")
             if len(columns) >= 6:
                 try:
-                    date = columns[0].text.strip()
-                    description = columns[2].text.strip()
-                    debit = columns[3].text.strip()
-                    credit = columns[4].text.strip()
-                    balance = columns[5].text.strip()
-
-                    #print(f"Row {index + 1} data: Date: {date}, Desc: {description}, Debit: {debit}, Credit: {credit}, Balance: {balance}")
+                    date = self.sanitize_text(columns[0].text)
+                    description = self.sanitize_text(columns[2].text)
+                    debit = self.sanitize_text(columns[3].text)
+                    credit = self.sanitize_text(columns[4].text)
+                    balance = self.sanitize_text(columns[5].text)
 
                     if date or description or debit or credit or balance:
                         item = f"{date} | {description} | Debit: {debit} | Credit: {credit} | Balance: {balance}"
