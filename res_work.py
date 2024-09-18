@@ -15,13 +15,98 @@ from includes.SeleniumHelper import SeleniumHelper
 from includes import globals
 from typing import List, Dict
 
+class GuestBillManager:
+    def __init__(self, selenium_helper: SeleniumHelper):
+        self.selenium_helper = selenium_helper
+
+    def void_fee(self, row: WebElement):
+        # Click the row to select it
+        row.click()
+        time.sleep(0.5)  # Wait for row selection to register
+
+        # Click the "Corrections" dropdown button
+        corrections_button_xpath = "//button[contains(@class, 'btn-success') and .//span[contains(text(), 'Corrections')]]"
+        if not self.selenium_helper.wait_and_click(By.XPATH, corrections_button_xpath, timeout=10):
+            print("Failed to click 'Corrections' button")
+            return
+
+        # Click the "Void Charge" option in the dropdown
+        void_charge_xpath = "//a[.//span[text()='Void Charge']]"
+        if not self.selenium_helper.wait_and_click(By.XPATH, void_charge_xpath, timeout=5):
+            print("Failed to click 'Void Charge' option")
+            return
+
+        # Wait for the modal to appear
+        modal = self.selenium_helper.wait_for_element(By.CLASS_NAME, "VoidChargeModal", timeout=10)
+        if not modal:
+            print("Void charge modal did not appear")
+            return
+
+        # Find and click the "Incorrect Entry" row
+        incorrect_entry_xpath = ".//div[contains(@class, 'GridLiteRow') and contains(., 'Incorrect Entry')]"
+        if not self.selenium_helper.wait_and_click(By.XPATH, incorrect_entry_xpath, timeout=5):
+            print("Failed to select 'Incorrect Entry' reason")
+            return
+
+        # Click the "Void Transaction" button
+        void_button_xpath = ".//a[contains(@class, 'btn-default') and .//span[text()='Void Transaction']]"
+        if not self.selenium_helper.wait_and_click(By.XPATH, void_button_xpath, timeout=5):
+            print("Failed to click 'Void Transaction' button")
+            return
+
+        # Wait for the modal to close
+        if not self.selenium_helper.wait_for_invisibility(By.CLASS_NAME, "VoidChargeModal", timeout=10):
+            print("Void charge modal did not close")
+
+    def is_matching_fee(self, description: str, fee_to_remove: str) -> bool:
+        return fee_to_remove.lower() in description.lower()
+
+    def get_grid_rows(self):
+        accounts_data_grid = self.selenium_helper.wait_for_element(By.CLASS_NAME, "AccountsDataGrid")
+        line_items = accounts_data_grid.find_element(By.XPATH, './/div[contains(@class, "GridLiteRowsContainer")]')
+        return line_items.find_elements(By.XPATH, './/div[contains(@class, "GridLiteRow")]')
+
+    def remove_fees(self, fees_to_remove: List[str]):
+        fees_removed = 0
+        while fees_removed < len(fees_to_remove):
+            rows = self.get_grid_rows()
+            fee_found = False
+
+            for row in rows:
+                try:
+                    columns = row.find_elements(By.XPATH, './/div[contains(@class, "GridLiteColumn")]')
+                    if len(columns) >= 3:
+                        description = columns[2].text.strip()
+                        
+                        for fee in fees_to_remove:
+                            if self.is_matching_fee(description, fee):
+                                print(f"Attempting to void fee: {description} (matched with '{fee}')")
+                                self.void_fee(row)
+                                time.sleep(3)  # Wait for the UI to update
+                                fees_removed += 1
+                                fee_found = True
+                                break
+
+                    if fee_found:
+                        break  # Break the row loop to re-fetch rows
+                except Exception as e:
+                    print(f"Error processing a row: {str(e)}")
+
+            if not fee_found:
+                print("No more matching fees found")
+                break
+
+        print(f"Finished processing fees. Removed {fees_removed} fee(s)")
+
 class ResWork:
-    def __init__(self, driver, selenium_helper: SeleniumHelper):
+    def __init__(self, driver, selenium_helper: SeleniumHelper, remove_fees: bool = False):
         self.driver = driver
         self.selenium_helper = selenium_helper
-        self.csv_filename = "reservation_data.csv"
+        self.csv_filename = "reservation_data_new.csv"
         self.csv_headers = ["ReservationId", "ResStatus", "ArriveDate", "DepartDate", "LegacyResId", "BaseRate", "TotalRate", "GuestBill", "ResNote", "ItemizedBill"]
-        self.temp_filename = "temp_reservation_data.csv"
+        self.temp_filename = "temp_reservation_data_new.csv"
+        self.guest_bill_manager = GuestBillManager(selenium_helper)
+        self.remove_fees = remove_fees
 
     def process_reservations(self, csv_file_path, start_reservation_id=None, has_headers=False):
         with open(csv_file_path, 'r') as csv_file:
@@ -189,7 +274,7 @@ class ResWork:
     def process_single_reservation(self, reservation_id: str, writer: csv.DictWriter, existing_data: Dict[str, str] = None) -> Dict[str, str]:
         self.search_reservation(reservation_id)
         if self.is_reservation_loaded(reservation_id):
-            time.sleep(2)
+            time.sleep(3)
             reservation_data = self.extract_reservation_data(reservation_id)
             
             if existing_data:
@@ -358,6 +443,11 @@ class ResWork:
 
             accounts_data_grid = self.selenium_helper.wait_for_element(By.CLASS_NAME, "AccountsDataGrid")
             print("Found the AccountsDataGrid")
+
+            if self.remove_fees:
+                # Fees array defined in __main__
+                self.guest_bill_manager.remove_fees(fees_to_remove)
+
             itemized_bill = self.extract_itemized_bill(accounts_data_grid)
             reservation_data["ItemizedBill"] = itemized_bill
         except TimeoutException:
@@ -411,17 +501,20 @@ def setup_logging():
     console.setFormatter(formatter)
     logging.getLogger('').addHandler(console)
 
-def automate_process(username, password, csv_file_path, start_reservation_id, has_headers, update_mode):
+def automate_process(username, password, csv_file_path, start_reservation_id, has_headers, update_mode, remove_fees, is_debug):
     setup_logging()
     chrome_options = Options()
     chrome_options.add_argument("--start-maximized")
     driver = webdriver.Chrome(options=chrome_options)
     try:
         logging.info("Starting the automation process")
-        globals.login_training_with_2fa_and_wait(driver, username, password)
+        if is_debug:
+            globals.login_training_with_2fa_and_wait(driver, username, password)
+        else:
+            globals.login_with_2fa_and_wait(driver, username, password)
         
         selenium_helper = SeleniumHelper(driver)
-        res_work = ResWork(driver, selenium_helper)
+        res_work = ResWork(driver, selenium_helper, remove_fees)
         
         if update_mode:
             res_work.update_missing_data(csv_file_path, start_reservation_id)
@@ -447,6 +540,12 @@ if __name__ == "__main__":
     parser.add_argument("--start", help="Reservation ID to start processing from")
     parser.add_argument("--headers", action="store_true", help="Specify if the source CSV file has headers")
     parser.add_argument("--update", action="store_true", help="Update mode: process only missing data")
+    parser.add_argument("--removefees", action="store_true", help="Remove specified fees from guest bills")
+    parser.add_argument("--debug", action="store_true", help="Runs in training")
     args = parser.parse_args()
 
-    automate_process(args.username, args.password, args.csv_file, args.start, args.headers, args.update)
+    # Set these for use with --removefees arg
+    # Uses Substring matching so be as specific as necessary
+    fees_to_remove = ["Admin Fee", "Hotel Occupancy", "Resort Fee"]
+
+    automate_process(args.username, args.password, args.csv_file, args.start, args.headers, args.update, args.removefees, args.debug)

@@ -42,6 +42,7 @@ class SeleniumHelper:
                         print(f"Successfully double-clicked element: {value}")
                     else:
                         element.click()
+                        time.sleep(0.5)
                         print(f"Successfully clicked element: {value}")
                     return True
                 else:
