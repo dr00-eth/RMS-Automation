@@ -10,54 +10,41 @@ from selenium.webdriver.remote.webelement import WebElement
 from typing import Optional
 import time
 import re
+from includes.decorators import retry
+from includes.logging_config import get_logger
+from includes.constants import DEFAULT_TIMEOUT
 
 class SeleniumHelper:
     def __init__(self, driver: webdriver.Chrome):
         self.driver = driver
+        self.logger = get_logger(__name__)
 
-    def wait_for_element(self, by: By, value: str, timeout: int = 20) -> Optional[WebElement]:
-        try:
-            return WebDriverWait(self.driver, timeout).until(
-                EC.presence_of_element_located((by, value))
-            )
-        except TimeoutException:
-            print(f"Timeout waiting for element to be present: {value}")
-            return None
+    @retry((TimeoutException, NoSuchElementException, StaleElementReferenceException))
+    def wait_for_element(self, by: By, value: str, timeout: int = DEFAULT_TIMEOUT) -> Optional[WebElement]:
+        return WebDriverWait(self.driver, timeout).until(
+            EC.presence_of_element_located((by, value))
+        )
 
-    def wait_for_clickable_element(self, by: By, value: str, timeout: int = 10) -> Optional[WebElement]:
-        try:
-            return WebDriverWait(self.driver, timeout).until(
-                EC.element_to_be_clickable((by, value))
-            )
-        except TimeoutException:
-            print(f"Timeout waiting for element to be clickable: {value}")
-            return None
+    @retry((TimeoutException, NoSuchElementException, StaleElementReferenceException))
+    def wait_for_clickable_element(self, by: By, value: str, timeout: int = DEFAULT_TIMEOUT) -> Optional[WebElement]:
+        return WebDriverWait(self.driver, timeout).until(
+            EC.element_to_be_clickable((by, value))
+        )
 
-    def wait_and_click(self, by: By, value: str, double_click: bool = False, timeout: int = 10, max_attempts: int = 10, retry_interval: float = 1.0) -> bool:
-        for attempt in range(max_attempts):
-            try:
-                element = self.wait_for_clickable_element(by, value, timeout)
-                if element and element.is_enabled():
-                    if double_click:
-                        ActionChains(self.driver).double_click(element).perform()
-                        print(f"Successfully double-clicked element: {value}")
-                    else:
-                        element.click()
-                        time.sleep(0.5)
-                        print(f"Successfully clicked element: {value}")
-                    return True
-                else:
-                    print(f"Element not clickable (Attempt {attempt + 1}/{max_attempts}): {value}")
-            except ElementClickInterceptedException:
-                print(f"Element click intercepted (Attempt {attempt + 1}/{max_attempts}): {value}")
-            except Exception as e:
-                print(f"Error clicking element (Attempt {attempt + 1}/{max_attempts}): {value}. Error: {str(e)}")
-            
-            if attempt < max_attempts - 1:
-                time.sleep(retry_interval)
-        
-        print(f"Failed to {'double-click' if double_click else 'click'} element after {max_attempts} attempts: {value}")
-        return False
+    @retry((TimeoutException, NoSuchElementException, StaleElementReferenceException, ElementClickInterceptedException))
+    def wait_and_click(self, by: By, value: str, double_click: bool = False, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        element = self.wait_for_clickable_element(by, value, timeout)
+        if element and element.is_enabled():
+            if double_click:
+                ActionChains(self.driver).double_click(element).perform()
+                self.logger.info(f"Successfully double-clicked element: {value}")
+            else:
+                element.click()
+                self.logger.info(f"Successfully clicked element: {value}")
+            return True
+        else:
+            self.logger.warning(f"Element not clickable: {value}")
+            return False
     
     def is_element_visible(self, by: By, value: str, timeout: int = 0) -> bool:
         try:
@@ -70,23 +57,17 @@ class SeleniumHelper:
         except NoSuchElementException:
             return False
 
-    def wait_for_visibility(self, by: By, value: str, timeout: int = 20) -> Optional[WebElement]:
-        try:
-            return WebDriverWait(self.driver, timeout).until(
-                EC.visibility_of_element_located((by, value))
-            )
-        except TimeoutException:
-            print(f"Timeout waiting for element to be visible: {value}")
-            return None
+    @retry((TimeoutException, NoSuchElementException, StaleElementReferenceException))
+    def wait_for_visibility(self, by: By, value: str, timeout: int = DEFAULT_TIMEOUT) -> Optional[WebElement]:
+        return WebDriverWait(self.driver, timeout).until(
+            EC.visibility_of_element_located((by, value))
+        )
 
-    def wait_for_invisibility(self, by: By, value: str, timeout: int = 20) -> bool:
-        try:
-            return WebDriverWait(self.driver, timeout).until(
-                EC.invisibility_of_element_located((by, value))
-            )
-        except TimeoutException:
-            print(f"Timeout waiting for element to be invisible: {value}")
-            return False
+    @retry((TimeoutException, NoSuchElementException, StaleElementReferenceException))
+    def wait_for_invisibility(self, by: By, value: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        return WebDriverWait(self.driver, timeout).until(
+            EC.invisibility_of_element_located((by, value))
+        )
         
     def wait_until_stable(self, by: By, value: str, timeout: float = 10, poll_frequency: float = 0.5) -> Optional[WebElement]:
         end_time = time.time() + timeout
@@ -194,10 +175,12 @@ class SeleniumHelper:
             text = f'"{text}"'
         return text.strip()
 
+    @retry((NoSuchElementException, StaleElementReferenceException))
     def get_element_text(self, by: By, value: str) -> str:
         element = self.wait_for_element(by, value)
         return self.sanitize_text(element.text) if element else ""
 
+    @retry((NoSuchElementException, StaleElementReferenceException))
     def get_element_value(self, by: By, value: str) -> str:
         element = self.wait_for_element(by, value)
         return self.sanitize_text(element.get_attribute("value")) if element else ""
