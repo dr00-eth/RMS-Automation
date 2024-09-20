@@ -2,15 +2,17 @@ import argparse
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 import traceback
-import logging
 import time
 from includes.SeleniumHelper import SeleniumHelper
 from includes.AttributeManager import AttributeManager
 from includes.SiteProcessor import SiteProcessor
 from includes.TaxManager import TaxManager
-from includes import globals, helpers
+from includes import globals
+from includes.logging_config import setup_logging, get_logger
+from includes.constants import DEFAULT_TIMEOUT, CATEGORY_URL, XPaths
 
-def automate_process(username: str, password: str, property_name: str, attr_logger: logging.Logger, start_number: int = 1):
+def automate_process(username: str, password: str, property_name: str, start_number: int = 1):
+    logger = get_logger(__name__)
     driver = None
     try:
         driver = webdriver.Chrome()
@@ -18,39 +20,39 @@ def automate_process(username: str, password: str, property_name: str, attr_logg
         selenium_helper = SeleniumHelper(driver)
         attribute_manager = AttributeManager(selenium_helper)
         tax_manager = TaxManager(selenium_helper)
-        site_processor = SiteProcessor(selenium_helper, attribute_manager, tax_manager, attr_logger)
+        site_processor = SiteProcessor(selenium_helper, attribute_manager, tax_manager)
 
         globals.login_with_2fa_and_wait(driver, username, password)
 
-        selenium_helper.driver.get("https://app13.rmscloud.com/#!/Setup/Category")
-        print("Navigated to Setup/Category page")
+        selenium_helper.driver.get(CATEGORY_URL)
+        logger.info("Navigated to Setup/Category page")
 
-        selenium_helper.wait_for_element(By.XPATH, '//*[@id="MainWindow"]/div/div[2]/div/div/div[2]')
-        print("Main window loaded")
+        selenium_helper.wait_for_element(By.XPATH, XPaths.MAIN_WINDOW, timeout=DEFAULT_TIMEOUT)
+        logger.info("Main window loaded")
 
         globals.wait_for_dropdown_and_select(driver, property_name)
         time.sleep(2)
         current_number = start_number - 1
-        container_xpath = '//*[@id="MainWindow"]/div/div[2]/div/div/div[2]/div'
+        container_xpath = XPaths.CONTAINER
 
         while True:
             next_row, next_number, site_name = site_processor.find_next_site(current_number, container_xpath)
             if not next_row:
-                print(f"No more sites found after number {current_number}. Ending process.")
+                logger.info(f"No more sites found after number {current_number}. Ending process.")
                 break
 
             site_processor.process_site_taxes(next_row, next_number, site_name, taxes_to_add, taxes_to_remove)
             current_number = next_number
 
-        print("Process completed successfully")
+        logger.info("Process completed successfully")
     except Exception as e:
-        print(f"An error occurred: {str(e)}")
-        print("Traceback:")
-        print(traceback.format_exc())
+        logger.error(f"An error occurred: {str(e)}")
+        logger.error("Traceback:")
+        logger.error(traceback.format_exc())
     finally:
         if driver:
             driver.quit()
-        print("Script execution completed.")
+        logger.info("Script execution completed.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RMS Cloud Automation Script")
@@ -73,5 +75,5 @@ if __name__ == "__main__":
         {"tax": "Resort Fee - RV - 29.00", "include": ["Vessel"]},
     ]
 
-    attr_logger, _ = helpers.setup_logging(args.property)
-    automate_process(args.username, args.password, args.property, attr_logger, args.start)
+    setup_logging(f"tax_processor_{args.property}")
+    automate_process(args.username, args.password, args.property, args.start)

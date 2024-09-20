@@ -9,6 +9,7 @@ from selenium.common.exceptions import NoSuchElementException, StaleElementRefer
 from selenium.webdriver.remote.webelement import WebElement
 from typing import Optional
 import time
+import re
 
 class SeleniumHelper:
     def __init__(self, driver: webdriver.Chrome):
@@ -180,3 +181,23 @@ class SeleniumHelper:
 
     def wait_for_modal_to_be_visible(self, class_name, timeout=5):
         return self.wait_for_element_state("visible", By.CLASS_NAME, class_name, timeout)
+    
+    def sanitize_text(self, text: str) -> str:
+        if text is None:
+            return ""
+        # Replace newlines with spaces
+        text = re.sub(r'\s+', ' ', text)
+        # Remove any non-printable characters
+        text = ''.join(char for char in text if char.isprintable())
+        # Enclose in double quotes only if contains comma
+        if ',' in text:
+            text = f'"{text}"'
+        return text.strip()
+
+    def get_element_text(self, by: By, value: str) -> str:
+        element = self.wait_for_element(by, value)
+        return self.sanitize_text(element.text) if element else ""
+
+    def get_element_value(self, by: By, value: str) -> str:
+        element = self.wait_for_element(by, value)
+        return self.sanitize_text(element.get_attribute("value")) if element else ""

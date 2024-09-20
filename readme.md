@@ -1,45 +1,121 @@
 # RMS Automations for Landstar Management
 
-Using VS Code, create a venv and install the packages from requirements.txt
-## Includes Structure
- - SeleniumHelper contains browser automation helper functions
- - PropertyManager contains helper functions for interacting with Property assignment grids
- - TaxManager is used for adjusting Site Type "Accounting" items
- - SiteProcessor is used for iterating over Sites in the Site Type/Site Number grid
- - AttributeManager is used for interacting with the Site Type Attributes tab.
+This project contains a set of automation scripts for RMS Cloud, designed to streamline various processes for Landstar Management.
 
-## Attributes Processor
-This script parses through all sites for a given property and has the ability to add/remove attributes to each site. As it goes it will log attribute exceptions (attributes assigned to a given site that were NOT defined in the list of ones that were to be allocated) to a file.
+## Table of Contents
+1. [Installation](#installation)
+2. [Project Structure](#project-structure)
+3. [Scripts](#scripts)
+   - [Attributes Processor](#attributes-processor)
+   - [Site Order by Numeric](#site-order-by-numeric)
+   - [Bulk Rate Delete](#bulk-rate-delete)
+   - [Bulk Rate Table Re-assign](#bulk-rate-table-re-assign)
+   - [Reservation Info Gather](#reservation-info-gather)
+4. [Creating New Automations](#creating-new-automations)
+5. [Troubleshooting](#troubleshooting)
 
-Usage: `python attributes_processor.py RMS_UNAME RMS_PWD "Property Name" (optional: --start XXX)`
-Property Name argument **MUST** match exactly what is displayed in the RMS property dropdown. Use the optional `--start` argument to jump to a site number higher than 1
-After sign-in, wait to clear trust date pop-up and go back to script terminal and press enter.
+## Installation
 
-## Site Order by Numeric
-This script is used for ordering site types by their numerical values rather than alphabetically
+1. Clone this repository to your local machine.
+2. Ensure you have Python 3.7+ installed.
+3. Create a virtual environment:
+   ```
+   python -m venv venv
+   ```
+4. Activate the virtual environment:
+   - On Windows: `venv\Scripts\activate`
+   - On macOS and Linux: `source venv/bin/activate`
+5. Install the required packages:
+   ```
+   pip install -r requirements.txt
+   ```
 
-Usage: `python site_order_by_numeric.py RMS_UNAME RMS_PWD`
-After sign-in, navigate to `Setup -> Site Type/Site Number`, select the property you want to order and go back to the script terminal and press enter.
+## Project Structure
 
-## Bulk Rate Delete
-This script is not used often, but if there is a need to bulk delete a given rate lookup you can use this.
+- `includes/`: Contains helper classes and utility functions
+  - `SeleniumHelper.py`: Helper functions for Selenium operations
+  - `PropertyManager.py`: Manages property-related operations
+  - `TaxManager.py`: Handles tax-related operations
+  - `AttributeManager.py`: Manages attribute-related operations
+  - `constants.py`: Stores project-wide constants
+  - `logging_config.py`: Configures logging for all scripts
+- `/`: Contains the main automation scripts
+- `README.md`: This file
+- `requirements.txt`: List of Python package dependencies
 
-Usage `python bulk_rate_delete.py RMS_UNAME RMS_PWD`
-After sign-in, navigate to `Rate Manager`, select the correct property, open the `Rate Lookup` window, filter by the rate to be removed, then go back to the script terminal and press enter.
+## Scripts
 
-## Bulk Rate Table Re-assign
-This script is not used often, but if there is a need to bulk rate re-assignement of a given rate table between properties you can use this.
+### Attributes Processor
 
-Usage FIRST UPDATE `property_to_select` & `property_to_select` to match the EXACT property names, then: `python bulk_rate_table_reassign.py RMS_UNAME RMS_PWD`
-After sign-in, navigate to `Rate Manager`, select the correct property, open the `Rate Tables` window, filter by the property & rate name to be moved, then go back to the script terminal and press enter.
+Parses through all sites for a given property and adds/removes attributes to each site.
 
-## Reservation Info Gather
-This script takes a CSV list, with or without column header (use: `--header`), of RMS reservation IDs and gathers vital details and a snapshot of the Guest Bill.
+Usage:
+```
+python attributes_processor.py RMS_USERNAME RMS_PASSWORD "Property Name" [--start XXX]
+```
+- `--start`: Optional argument to start from a specific site number
 
-Usage `python res_work.py RMS_UNAME RMS_PWD path_to_input_csv.csv (optional: --headers, --update, --start XXX)`
-- `--headers` indicates header row in source CSV
-- `--update` checks previous output for missing data and updates just those reservations
-- `--start` takes in a reservation number to start from
+### Site Order by Numeric
 
-## Automation Template
-This is a boilerplate to speed up the process of creating new automations. Just create a copy for a given task and insert logic functions in the placeholder.
+Orders site types by their numerical values rather than alphabetically.
+
+Usage:
+```
+python site_order_by_numeric.py RMS_USERNAME RMS_PASSWORD
+```
+
+After sign-in, navigate to `Setup -> Site Type/Site Number`, select the property you want to order, and press Enter in the script terminal.
+
+### Bulk Rate Delete
+
+Used for bulk deletion of a given rate lookup.
+
+Usage:
+```
+python bulk_rate_delete.py RMS_USERNAME RMS_PASSWORD
+```
+
+After sign-in, navigate to `Rate Manager`, select the correct property, open the `Rate Lookup` window, filter by the rate to be removed, then go back to the script terminal and press Enter.
+
+### Bulk Rate Table Re-assign
+
+Used for bulk rate reassignment of a given rate table between properties.
+
+Usage:
+```
+python bulk_rate_table_reassign.py RMS_USERNAME RMS_PASSWORD PROPERTY_TO_SELECT PROPERTY_TO_REMOVE
+```
+
+Ensure `PROPERTY_TO_SELECT` and `PROPERTY_TO_REMOVE` match the exact property names in RMS Cloud.
+
+### Reservation Info Gather
+
+Gathers vital details and a snapshot of the Guest Bill for a list of reservation IDs.
+
+Usage:
+```
+python res_work.py RMS_USERNAME RMS_PASSWORD path_to_input_csv.csv [--headers] [--update] [--start XXX] [--removefees] [--debug]
+```
+- `--headers`: Indicates header row in source CSV
+- `--update`: Checks previous output for missing data and updates just those reservations
+- `--start`: Takes in a reservation number to start from
+- `--removefees`: Removes specified fees from guest bills
+- `--debug`: Runs in training mode
+
+## Creating New Automations
+
+To create a new automation script, use the `automation_template.py` as a starting point. This template includes the basic structure and best practices for creating automations using this framework.
+
+1. Copy `automation_template.py` and rename it to your new script name.
+2. Modify the `AutomationTemplate` class to include your specific automation logic.
+3. Update the `perform_action` and `process_data` methods with your automation steps.
+4. Adjust the argument parser if you need additional command-line arguments.
+5. Implement the `load_data_from_file` function if your automation requires input data.
+
+## Troubleshooting
+
+- If you encounter any issues with element locators, check the `constants.py` file and update the XPaths if necessary.
+- For logging-related issues, refer to the `logging_config.py` file and ensure it's properly configured for your environment.
+- If you're having trouble with a specific script, check the individual script's logging output for more detailed error messages.
+
+For any other issues or questions, please contact the Drew.
