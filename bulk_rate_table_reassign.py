@@ -1,21 +1,26 @@
-import argparse
-from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.remote.webelement import WebElement
 import time
-from includes.SeleniumHelper import SeleniumHelper
 from includes.PropertyManager import PropertyManager
-from includes import globals
-from includes.logging_config import setup_logging, get_logger
+from includes.logging_config import setup_logging
 from includes.constants import DEFAULT_TIMEOUT, XPaths
+from includes.BaseAutomation import BaseAutomation
+from includes.argument_parser_utility import create_base_parser
 
-class BulkRateTableReassign:
-    def __init__(self, driver):
-        self.driver = driver
-        self.selenium_helper = SeleniumHelper(driver)
+class BulkRateTableReassign(BaseAutomation):
+    def __init__(self, username: str, password: str, property_to_select: str, property_to_remove: str, debug: bool = False):
+        super().__init__(username, password, debug)
+        self.property_to_select = property_to_select
+        self.property_to_remove = property_to_remove
+        self.property_manager = None
+
+    def setup(self):
+        super().setup()
         self.property_manager = PropertyManager(self.selenium_helper)
-        self.logger = get_logger(__name__)
+
+    def perform_automation(self):
+        self.update_all_rows(self.property_to_select, self.property_to_remove, max_retries=10)
 
     def get_grid_rows(self):
         try:
@@ -174,39 +179,16 @@ class BulkRateTableReassign:
         if retry_count >= max_retries:
             self.logger.error(f"Maximum retries ({max_retries}) reached. Exiting the process.")
 
-def automate_process(username, password, property_to_select, property_to_remove, debug):
-    logger = get_logger(__name__)
-    driver = None
-    try:
-        driver = webdriver.Chrome()
-        driver.maximize_window()
-
-        if debug:
-            globals.login_training_with_2fa_and_wait(driver, username, password)
-        else:
-            globals.login_with_2fa_and_wait(driver, username, password)
-        
-        bulk_reassign = BulkRateTableReassign(driver)
-        bulk_reassign.update_all_rows(property_to_select, property_to_remove, max_retries=10)
-
-        logger.info("Process completed successfully")
-        logger.info("Please verify the results.")
-        input("Press Enter when you're done verifying...")
-    except Exception as e:
-        logger.error(f"An error occurred: {str(e)}")
-    finally:
-        if driver:
-            driver.quit()
-        logger.info("Script execution completed.")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="RMS Cloud Bulk Rate Table Reassign Automation Script")
-    parser.add_argument("username", help="Your RMS Cloud username")
-    parser.add_argument("password", help="Your RMS Cloud password")
+def main():
+    parser = create_base_parser("RMS Cloud Bulk Rate Table Reassign Automation Script")
     parser.add_argument("property_to_select", help="Property to select")
     parser.add_argument("property_to_remove", help="Property to remove")
-    parser.add_argument("--debug", action="store_true", help="Runs in training")
     args = parser.parse_args()
 
     setup_logging("bulk_rate_table_reassign")
-    automate_process(args.username, args.password, args.property_to_select, args.property_to_remove, args.debug)
+
+    bulk_reassign = BulkRateTableReassign(args.username, args.password, args.property_to_select, args.property_to_remove, args.debug)
+    bulk_reassign.run()
+
+if __name__ == "__main__":
+    main()

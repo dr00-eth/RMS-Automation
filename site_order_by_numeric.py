@@ -1,20 +1,29 @@
-import argparse
-from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.remote.webelement import WebElement
 import time
 import re
-from includes.SeleniumHelper import SeleniumHelper
-from includes import globals
-from includes.logging_config import setup_logging, get_logger
+from includes.logging_config import setup_logging
 from includes.constants import DEFAULT_TIMEOUT, CATEGORY_URL, XPaths
+from includes.BaseAutomation import BaseAutomation
+from includes.argument_parser_utility import create_base_parser
 
-class SiteOrderManager:
-    def __init__(self, driver):
-        self.driver = driver
-        self.selenium_helper = SeleniumHelper(driver)
-        self.logger = get_logger(__name__)
+class SiteOrderManager(BaseAutomation):
+    def __init__(self, username: str, password: str, debug: bool = False):
+        super().__init__(username, password, debug)
+
+    def perform_automation(self):
+        self.navigate_to_page(CATEGORY_URL)
+        self.logger.info("Navigated to Setup/Category page")
+
+        self.selenium_helper.wait_for_element(By.XPATH, XPaths.MAIN_WINDOW, timeout=DEFAULT_TIMEOUT)
+        self.logger.info("Main window loaded")
+
+        self.open_display_order_panel()
+        if self.order_sites():
+            self.logger.info("Sites ordered successfully")
+        else:
+            self.logger.error("Failed to order sites")
 
     def open_display_order_panel(self):
         if self.selenium_helper.wait_and_click(By.XPATH, XPaths.DISPLAY_ORDER_BUTTON, timeout=DEFAULT_TIMEOUT):
@@ -84,41 +93,14 @@ class SiteOrderManager:
         
         return True
 
-def automate_process(username, password):
-    logger = get_logger(__name__)
-    driver = webdriver.Chrome()
-    try:
-        driver.maximize_window()
-        globals.login_with_2fa_and_wait(driver, username, password)
-        
-        driver.get(CATEGORY_URL)
-        logger.info("Navigated to Setup/Category page")
-        
-        selenium_helper = SeleniumHelper(driver)
-        if not selenium_helper.wait_for_element(By.XPATH, XPaths.MAIN_WINDOW, timeout=DEFAULT_TIMEOUT):
-            logger.error("Main window did not load")
-            return
-
-        site_order_manager = SiteOrderManager(driver)
-        site_order_manager.open_display_order_panel()
-        if site_order_manager.order_sites():
-            logger.info("Sites ordered successfully")
-        else:
-            logger.error("Failed to order sites")
-
-        logger.info("Process completed. Please verify the results and save if correct.")
-        input("Press Enter when you're done verifying and saving...")
-    except Exception as e:
-        logger.error(f"An error occurred: {str(e)}")
-    finally:
-        driver.quit()
-        logger.info("Script execution completed.")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="RMS Cloud Display Order Automation Script")
-    parser.add_argument("username", help="Your RMS Cloud username")
-    parser.add_argument("password", help="Your RMS Cloud password")
+def main():
+    parser = create_base_parser("RMS Cloud Display Order Automation Script")
     args = parser.parse_args()
 
     setup_logging("site_order_by_numeric")
-    automate_process(args.username, args.password)
+
+    site_order_manager = SiteOrderManager(args.username, args.password, args.debug)
+    site_order_manager.run()
+
+if __name__ == "__main__":
+    main()

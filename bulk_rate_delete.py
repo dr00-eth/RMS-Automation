@@ -1,18 +1,17 @@
-import argparse
-from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException
 import time
-from includes.SeleniumHelper import SeleniumHelper
-from includes import globals
-from includes.logging_config import setup_logging, get_logger
+from includes.logging_config import setup_logging
 from includes.constants import DEFAULT_TIMEOUT, XPaths
+from includes.BaseAutomation import BaseAutomation
+from includes.argument_parser_utility import create_base_parser
 
-class BulkRateDelete:
-    def __init__(self, driver):
-        self.driver = driver
-        self.selenium_helper = SeleniumHelper(driver)
-        self.logger = get_logger(__name__)
+class BulkRateDelete(BaseAutomation):
+    def __init__(self, username: str, password: str, debug: bool = False):
+        super().__init__(username, password, debug)
+
+    def perform_automation(self):
+        self.delete_all_rows()
 
     def get_grid_rows(self):
         try:
@@ -83,30 +82,14 @@ class BulkRateDelete:
                 self.logger.warning("Failed to delete row. Retrying...")
                 time.sleep(2)
 
-def automate_process(username, password):
-    logger = get_logger(__name__)
-    driver = webdriver.Chrome()
-    try:
-        driver.maximize_window()
-        globals.login_with_2fa_and_wait(driver, username, password)
-        
-        bulk_delete = BulkRateDelete(driver)
-        bulk_delete.delete_all_rows()
-
-        logger.info("Process completed successfully")
-        logger.info("Please verify the results.")
-        input("Press Enter when you're done verifying...")
-    except Exception as e:
-        logger.error(f"An error occurred: {str(e)}")
-    finally:
-        driver.quit()
-        logger.info("Script execution completed.")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="RMS Cloud Delete Rows Automation Script")
-    parser.add_argument("username", help="Your RMS Cloud username")
-    parser.add_argument("password", help="Your RMS Cloud password")
+def main():
+    parser = create_base_parser("RMS Cloud Delete Rows Automation Script")
     args = parser.parse_args()
 
     setup_logging("bulk_rate_delete")
-    automate_process(args.username, args.password)
+
+    bulk_delete = BulkRateDelete(args.username, args.password, args.debug)
+    bulk_delete.run()
+
+if __name__ == "__main__":
+    main()
