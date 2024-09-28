@@ -11,23 +11,27 @@ def setup_logging(log_name, log_level=logging.INFO):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = f"logs/{log_name}_{timestamp}.log"
 
-    # Configure logging
-    logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        filename=log_file,
-        filemode='w'
-    )
+    # Configure the root logger
+    logger = logging.getLogger()
+    logger.setLevel(log_level)
 
-    # Create console handler
-    console = logging.StreamHandler()
-    console.setLevel(log_level)
-    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-    console.setFormatter(formatter)
+    # Check if the root logger already has handlers
+    if not logger.handlers:
+        # Create file handler which logs even debug messages
+        fh = logging.FileHandler(log_file)
+        fh.setLevel(log_level)
+        fh_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        fh.setFormatter(fh_formatter)
+        logger.addHandler(fh)
 
-    # Add console handler to the root logger
-    logging.getLogger('').addHandler(console)
+        # Create console handler with a higher log level
+        ch = logging.StreamHandler()
+        ch.setLevel(log_level)
+        ch_formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+        ch.setFormatter(ch_formatter)
+        logger.addHandler(ch)
 
+    # Return a logger with the specified name
     return logging.getLogger(log_name)
 
 def get_logger(name):

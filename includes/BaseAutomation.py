@@ -19,20 +19,24 @@ class BaseAutomation:
         self.driver = webdriver.Chrome(options=chrome_options)
         self.selenium_helper = SeleniumHelper(self.driver)
 
-    def login(self):
+    def login(self, isNewbook: bool = False):
+        if isNewbook:
+            globals.NB_login_with_2fa_and_wait(self.driver, self.username, self.password)
+            return
+        
         if self.debug:
-            globals.login_training_with_2fa_and_wait(self.driver, self.username, self.password)
+            globals.RMS_login_training_with_2fa_and_wait(self.driver, self.username, self.password)
         else:
-            globals.login_with_2fa_and_wait(self.driver, self.username, self.password)
+            globals.RMS_login_with_2fa_and_wait(self.driver, self.username, self.password)
 
     def navigate_to_page(self, url):
         self.driver.get(url)
         self.logger.info(f"Navigated to {url}")
 
-    def run(self):
+    def run(self, isNewbook: bool = False):
         try:
             self.setup()
-            self.login()
+            self.login(isNewbook)
             self.perform_automation()
             self.logger.info("Process completed successfully")
             self.logger.info("Please verify the results.")

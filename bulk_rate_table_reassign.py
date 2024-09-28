@@ -4,7 +4,7 @@ from selenium.webdriver.remote.webelement import WebElement
 import time
 from includes.PropertyManager import PropertyManager
 from includes.logging_config import setup_logging
-from includes.constants import DEFAULT_TIMEOUT, XPaths
+from includes.constants import DEFAULT_TIMEOUT, RMS_XPaths
 from includes.BaseAutomation import BaseAutomation
 from includes.argument_parser_utility import create_base_parser
 
@@ -25,7 +25,7 @@ class BulkRateTableReassign(BaseAutomation):
     def get_grid_rows(self):
         try:
             container = self.selenium_helper.wait_for_element(
-                By.XPATH, XPaths.RATE_TABLE_GRID_CONTAINER, timeout=DEFAULT_TIMEOUT
+                By.XPATH, RMS_XPaths.RATE_TABLE_GRID_CONTAINER, timeout=DEFAULT_TIMEOUT
             )
             return container.find_elements(By.XPATH, './/div[contains(@class, "GridLiteRow")]')
         except TimeoutException:
@@ -55,7 +55,7 @@ class BulkRateTableReassign(BaseAutomation):
                 else:
                     self.logger.info(f"First row already selected (Attempt {attempt + 1})")
                 
-                if self.selenium_helper.wait_and_click(By.XPATH, XPaths.EDIT_BUTTON, timeout=wait_time, max_attempts=10, retry_interval=2.0):
+                if self.selenium_helper.wait_and_click(By.XPATH, RMS_XPaths.EDIT_BUTTON, timeout=wait_time, max_attempts=10, retry_interval=2.0):
                     self.logger.info(f"Clicked Edit button (Attempt {attempt + 1})")
                     
                     if self.selenium_helper.wait_for_modal_to_be_visible("RateTableSetup", timeout=5):
@@ -79,7 +79,7 @@ class BulkRateTableReassign(BaseAutomation):
     def click_properties_button_with_retry(self, max_attempts=3):
         for attempt in range(max_attempts):
             try:
-                if self.selenium_helper.wait_and_click(By.XPATH, XPaths.PROPERTIES_BUTTON, timeout=DEFAULT_TIMEOUT):
+                if self.selenium_helper.wait_and_click(By.XPATH, RMS_XPaths.PROPERTIES_BUTTON, timeout=DEFAULT_TIMEOUT):
                     self.logger.info(f"Clicked properties button (Attempt {attempt + 1})")
                     
                     if self.selenium_helper.is_modal_visible("AdvancedPropertySelectionModal"):
@@ -107,7 +107,7 @@ class BulkRateTableReassign(BaseAutomation):
             if self.selenium_helper.is_modal_visible("ResStatusWarnings"):
                 self.logger.warning("Server error modal detected.")
                 
-                if self.selenium_helper.wait_and_click(By.XPATH, XPaths.ERROR_MODAL_OK_BUTTON, timeout=timeout):
+                if self.selenium_helper.wait_and_click(By.XPATH, RMS_XPaths.ERROR_MODAL_OK_BUTTON, timeout=timeout):
                     self.logger.info("Dismissed server error modal.")
                     return True
                 else:
@@ -143,18 +143,18 @@ class BulkRateTableReassign(BaseAutomation):
                     retry_count += 1
                     continue
 
-                available_xpath = XPaths.AVAILABLE_PROPERTIES
-                selected_xpath = XPaths.SELECTED_PROPERTIES
+                available_xpath = RMS_XPaths.AVAILABLE_PROPERTIES
+                selected_xpath = RMS_XPaths.SELECTED_PROPERTIES
 
                 self.property_manager.select_property(property_to_select, available_xpath, selected_xpath)
                 self.property_manager.remove_property(property_to_remove, selected_xpath)
 
-                if not self.selenium_helper.wait_and_click(By.XPATH, XPaths.CLOSE_PROPERTIES_MODAL, timeout=DEFAULT_TIMEOUT):
+                if not self.selenium_helper.wait_and_click(By.XPATH, RMS_XPaths.CLOSE_PROPERTIES_MODAL, timeout=DEFAULT_TIMEOUT):
                     self.logger.warning("Failed to close properties modal.")
                     retry_count += 1
                     continue
 
-                if not self.selenium_helper.wait_and_click(By.XPATH, XPaths.SAVE_CHANGES, timeout=DEFAULT_TIMEOUT):
+                if not self.selenium_helper.wait_and_click(By.XPATH, RMS_XPaths.SAVE_CHANGES, timeout=DEFAULT_TIMEOUT):
                     self.logger.warning("Failed to save changes and exit to main window.")
                     retry_count += 1
                     continue

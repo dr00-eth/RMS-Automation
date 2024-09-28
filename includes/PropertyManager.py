@@ -3,7 +3,7 @@ from selenium.common.exceptions import TimeoutException
 from typing import List, Dict, Union
 from includes.BaseManager import BaseManager
 from includes.SeleniumHelper import SeleniumHelper
-from includes.constants import DEFAULT_TIMEOUT, XPaths
+from includes.constants import DEFAULT_TIMEOUT, RMS_XPaths
 
 class PropertyManager(BaseManager):
     def __init__(self, selenium_helper: SeleniumHelper):
@@ -15,7 +15,7 @@ class PropertyManager(BaseManager):
             self.logger.warning(f"Failed to click on property: {property_name}")
             return False
 
-        if not self.selenium_helper.wait_and_click(By.XPATH, XPaths.PROPERTY_ADD_BUTTON, timeout=DEFAULT_TIMEOUT):
+        if not self.selenium_helper.wait_and_click(By.XPATH, RMS_XPaths.PROPERTY_ADD_BUTTON, timeout=DEFAULT_TIMEOUT):
             self.logger.warning("Failed to click Add button")
             return False
 
@@ -33,7 +33,7 @@ class PropertyManager(BaseManager):
             self.logger.warning(f"Failed to click on property to remove: {property_name}")
             return False
 
-        if not self.selenium_helper.wait_and_click(By.XPATH, XPaths.PROPERTY_REMOVE_BUTTON, timeout=DEFAULT_TIMEOUT):
+        if not self.selenium_helper.wait_and_click(By.XPATH, RMS_XPaths.PROPERTY_REMOVE_BUTTON, timeout=DEFAULT_TIMEOUT):
             self.logger.warning("Failed to click Remove button")
             return False
 

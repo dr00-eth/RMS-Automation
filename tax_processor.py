@@ -5,7 +5,7 @@ from includes.SiteProcessor import SiteProcessor
 from includes.TaxManager import TaxManager
 from includes import globals
 from includes.logging_config import setup_logging
-from includes.constants import DEFAULT_TIMEOUT, CATEGORY_URL, XPaths
+from includes.constants import DEFAULT_TIMEOUT, RMS_CATEGORY_URL, RMS_XPaths
 from includes.BaseAutomation import BaseAutomation
 from includes.argument_parser_utility import create_base_parser, add_property_arguments
 
@@ -25,16 +25,16 @@ class TaxProcessor(BaseAutomation):
         self.site_processor = SiteProcessor(self.selenium_helper, self.attribute_manager, self.tax_manager)
 
     def perform_automation(self):
-        self.navigate_to_page(CATEGORY_URL)
+        self.navigate_to_page(RMS_CATEGORY_URL)
         self.logger.info("Navigated to Setup/Category page")
 
-        self.selenium_helper.wait_for_element(By.XPATH, XPaths.MAIN_WINDOW, timeout=DEFAULT_TIMEOUT)
+        self.selenium_helper.wait_for_element(By.XPATH, RMS_XPaths.MAIN_WINDOW, timeout=DEFAULT_TIMEOUT)
         self.logger.info("Main window loaded")
 
         globals.wait_for_dropdown_and_select(self.driver, self.property_name)
         time.sleep(2)
         current_number = self.start_number - 1
-        container_xpath = XPaths.CONTAINER
+        container_xpath = RMS_XPaths.CONTAINER
 
         while True:
             next_row, next_number, site_name = self.site_processor.find_next_site(current_number, container_xpath)

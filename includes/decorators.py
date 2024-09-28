@@ -1,10 +1,15 @@
 import time
 from functools import wraps
+from typing import Any, Callable, Type, Union
 from includes.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-def retry(exceptions, tries=3, delay=1, backoff=2, logger=None):
+def retry(exceptions: Union[Type[Exception], tuple[Type[Exception], ...]], 
+          tries: int = 3, 
+          delay: int = 1, 
+          backoff: int = 2, 
+          logger: Any = None):
     """
     Retry decorator with exponential backoff.
     
@@ -18,11 +23,16 @@ def retry(exceptions, tries=3, delay=1, backoff=2, logger=None):
     def deco_retry(f):
         @wraps(f)
         def f_retry(*args, **kwargs):
-            mtries, mdelay = tries, delay
+            # Extract retry-specific kwargs
+            mtries = kwargs.pop('_retry_tries', tries)
+            mdelay = kwargs.pop('_retry_delay', delay)
+            mbackoff = kwargs.pop('_retry_backoff', backoff)
+            _exceptions = kwargs.pop('_retry_exceptions', exceptions)
+            
             while mtries > 1:
                 try:
                     return f(*args, **kwargs)
-                except exceptions as e:
+                except _exceptions as e:
                     msg = f"{str(e)}, Retrying in {mdelay} seconds..."
                     if logger:
                         logger.warning(msg)
@@ -30,7 +40,7 @@ def retry(exceptions, tries=3, delay=1, backoff=2, logger=None):
                         print(msg)
                     time.sleep(mdelay)
                     mtries -= 1
-                    mdelay *= backoff
+                    mdelay *= mbackoff
             return f(*args, **kwargs)
         return f_retry
     return deco_retry

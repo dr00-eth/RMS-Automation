@@ -1,10 +1,17 @@
 import argparse
 
+class RawTextArgumentDefaultsHelpFormatter(argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
+    pass
+
+class PasswordAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, values)
+
 def create_base_parser(description: str) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("username", help="Your RMS Cloud username")
-    parser.add_argument("password", help="Your RMS Cloud password")
-    parser.add_argument("--debug", action="store_true", help="Runs in training mode")
+    parser = argparse.ArgumentParser(description=description, formatter_class=RawTextArgumentDefaultsHelpFormatter)
+    parser.add_argument("username", help="Your Newbook username")
+    parser.add_argument("password", help="Your Newbook password", action=PasswordAction)
+    parser.add_argument("--debug", action="store_true", help="Runs in debug mode")
     return parser
 
 def add_property_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:

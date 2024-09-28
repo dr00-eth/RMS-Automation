@@ -2,7 +2,7 @@ from typing import List, Dict
 from selenium.webdriver.common.by import By
 from includes.PropertyManager import PropertyManager
 from includes.logging_config import setup_logging
-from includes.constants import DEFAULT_TIMEOUT, CATEGORY_URL, XPaths
+from includes.constants import DEFAULT_TIMEOUT, RMS_CATEGORY_URL, RMS_XPaths
 from includes.BaseAutomation import BaseAutomation
 from includes.argument_parser_utility import create_base_parser, add_property_arguments
 
@@ -27,8 +27,8 @@ class AutomationTemplate(BaseAutomation):
         Navigate to the specific page where the automation will run.
         Replace the URL with the appropriate one for your automation.
         """
-        self.navigate_to_page(CATEGORY_URL)  # Replace with the appropriate URL
-        self.selenium_helper.wait_for_element(By.XPATH, XPaths.MAIN_WINDOW, timeout=DEFAULT_TIMEOUT)
+        self.navigate_to_page(RMS_CATEGORY_URL)  # Replace with the appropriate URL
+        self.selenium_helper.wait_for_element(By.XPATH, RMS_XPaths.MAIN_WINDOW, timeout=DEFAULT_TIMEOUT)
         self.logger.info("Main window loaded")
 
     def perform_main_action(self):
@@ -38,7 +38,7 @@ class AutomationTemplate(BaseAutomation):
         """
         try:
             # Example: Click a button
-            if self.selenium_helper.wait_and_click(By.XPATH, XPaths.SOME_ELEMENT, timeout=DEFAULT_TIMEOUT):
+            if self.selenium_helper.wait_and_click(By.XPATH, RMS_XPaths.SOME_ELEMENT, timeout=DEFAULT_TIMEOUT):
                 self.logger.info("Successfully clicked the button")
             else:
                 self.logger.error("Failed to click the button")

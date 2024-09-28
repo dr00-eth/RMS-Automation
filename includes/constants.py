@@ -1,12 +1,15 @@
 # URLs
-LOGIN_URL = "https://app13.rmscloud.com/Login"
-CATEGORY_URL = "https://app13.rmscloud.com/#!/Setup/Category"
+RMS_LOGIN_URL = "https://app13.rmscloud.com/Login"
+RMS_CATEGORY_URL = "https://app13.rmscloud.com/#!/Setup/Category"
+RMS_CLIENT_ID = "19681"
 
-# Client ID
-CLIENT_ID = "19681"
+NB_LOGIN_URL = "https://login.newbook.cloud/"
+NB_RESERVATION_URL = "https://appus.newbook.cloud/bookings_view/"
+NB_CO_LOGIN_CODE = "3159"
+NB_CR_LOGIN_CODE = "3081"
 
-# XPaths
-class XPaths:
+# RMS XPaths
+class RMS_XPaths:
     # Login page
     CLIENT_ID_INPUT = ".clientId"
     USERNAME_INPUT = ".username"
@@ -54,10 +57,16 @@ class XPaths:
     # Guest Bill Management
     CORRECTIONS_BUTTON = "//button[contains(@class, 'btn-success') and .//span[contains(text(), 'Corrections')]]"
     VOID_CHARGE_OPTION = "//a[.//span[text()='Void Charge']]"
+    REFUND_CHARGE_OPTION = "//a[.//span[text()='Refund']]"
     INCORRECT_ENTRY_ROW = ".//div[contains(@class, 'GridLiteRow') and contains(., 'Incorrect Entry')]"
     VOID_TRANSACTION_BUTTON = ".//a[contains(@class, 'btn-default') and .//span[text()='Void Transaction']]"
+    PROCESS_REFUND_BUTTON = ".//a[contains(@class, 'btn-default') and .//span[text()='Process']]"
     GUEST_BILL_LINK = '//*[@id="AcctRows"]/div/div[1]/div[25]/label/a'
     CLOSE_GUEST_BILL_MODAL = '//*[@id="AccountsButtonsRow"]/a[13]'
+
+# Newbook XPaths
+class NB_XPaths:
+    PLACEHOLDER = ""
 
 # Timeouts
 DEFAULT_TIMEOUT = 10

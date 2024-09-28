@@ -1,14 +1,15 @@
 import csv
 import os
+import re
 import time
-from typing import List, Dict
+from typing import List, Dict, Tuple, Optional
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
 from selenium.webdriver.remote.webelement import WebElement
 from includes.SeleniumHelper import SeleniumHelper
 from includes.logging_config import setup_logging
-from includes.constants import DEFAULT_TIMEOUT, XPaths
+from includes.constants import DEFAULT_TIMEOUT, RMS_XPaths
 from includes.BaseAutomation import BaseAutomation
 from includes.argument_parser_utility import create_base_parser
 
@@ -21,12 +22,12 @@ class GuestBillManager:
         row.click()
         time.sleep(0.5)
 
-        corrections_button_xpath = XPaths.CORRECTIONS_BUTTON
+        corrections_button_xpath = RMS_XPaths.CORRECTIONS_BUTTON
         if not self.selenium_helper.wait_and_click(By.XPATH, corrections_button_xpath, timeout=DEFAULT_TIMEOUT):
             self.logger.error("Failed to click 'Corrections' button")
             return
 
-        void_charge_xpath = XPaths.VOID_CHARGE_OPTION
+        void_charge_xpath = RMS_XPaths.VOID_CHARGE_OPTION
         if not self.selenium_helper.wait_and_click(By.XPATH, void_charge_xpath, timeout=DEFAULT_TIMEOUT):
             self.logger.error("Failed to click 'Void Charge' option")
             return
@@ -36,18 +37,61 @@ class GuestBillManager:
             self.logger.error("Void charge modal did not appear")
             return
 
-        incorrect_entry_xpath = XPaths.INCORRECT_ENTRY_ROW
+        incorrect_entry_xpath = RMS_XPaths.INCORRECT_ENTRY_ROW
         if not self.selenium_helper.wait_and_click(By.XPATH, incorrect_entry_xpath, timeout=DEFAULT_TIMEOUT):
             self.logger.error("Failed to select 'Incorrect Entry' reason")
             return
 
-        void_button_xpath = XPaths.VOID_TRANSACTION_BUTTON
+        void_button_xpath = RMS_XPaths.VOID_TRANSACTION_BUTTON
         if not self.selenium_helper.wait_and_click(By.XPATH, void_button_xpath, timeout=DEFAULT_TIMEOUT):
             self.logger.error("Failed to click 'Void Transaction' button")
             return
 
         if not self.selenium_helper.wait_for_invisibility(By.CLASS_NAME, "VoidChargeModal", timeout=DEFAULT_TIMEOUT):
             self.logger.error("Void charge modal did not close")
+
+    def refund_fee(self, row: WebElement, receipt_number: int):
+        row.click()
+        time.sleep(0.5)
+
+        corrections_button_xpath = RMS_XPaths.CORRECTIONS_BUTTON
+        if not self.selenium_helper.wait_and_click(By.XPATH, corrections_button_xpath, timeout=DEFAULT_TIMEOUT):
+            self.logger.error("Failed to click 'Corrections' button")
+            return
+
+        refund_charge_xpath = RMS_XPaths.REFUND_CHARGE_OPTION
+        if not self.selenium_helper.wait_and_click(By.XPATH, refund_charge_xpath, timeout=DEFAULT_TIMEOUT):
+            self.logger.error("Failed to click 'Refund' option")
+            return
+
+        modal = self.selenium_helper.wait_for_element(By.CLASS_NAME, "RefundModal", timeout=DEFAULT_TIMEOUT)
+        if not modal:
+            self.logger.error("Refund modal did not appear")
+            return
+
+        receipt_input = self.selenium_helper.wait_for_element(By.CLASS_NAME, "ReceiptInputText")
+        if receipt_input:
+            receipt_input.clear()
+            receipt_input.send_keys(str(receipt_number))
+            time.sleep(1)
+        else:
+            self.logger.error("Failed to find receipt input")
+
+        comment_input = self.selenium_helper.wait_for_element(By.CLASS_NAME, "RefundCommentInput")
+        if comment_input:
+            comment_input.clear()
+            comment_input.send_keys("Not real money")
+            time.sleep(1)
+        else:
+            self.logger.error("Failed to find comment input")
+
+        process_button_xpath = RMS_XPaths.PROCESS_REFUND_BUTTON
+        if not self.selenium_helper.wait_and_click(By.XPATH, process_button_xpath, timeout=DEFAULT_TIMEOUT):
+            self.logger.error("Failed to click 'Process' refund button")
+            return
+
+        if not self.selenium_helper.wait_for_invisibility(By.CLASS_NAME, "RefundModal", timeout=DEFAULT_TIMEOUT):
+            self.logger.error("Refund modal did not close")
 
     def is_matching_fee(self, description: str, fee_to_remove: str) -> bool:
         return fee_to_remove.lower() in description.lower()
@@ -56,6 +100,38 @@ class GuestBillManager:
         accounts_data_grid = self.selenium_helper.wait_for_element(By.CLASS_NAME, "AccountsDataGrid")
         line_items = accounts_data_grid.find_element(By.XPATH, './/div[contains(@class, "GridLiteRowsContainer")]')
         return line_items.find_elements(By.XPATH, './/div[contains(@class, "GridLiteRow")]')
+    
+    def remove_smallest_journal(self):
+        rows = self.get_grid_rows()
+        journal_count = 0
+        smallest_journal: Optional[Tuple[WebElement, float, int]] = None
+
+        for row in rows:
+            try:
+                columns = row.find_elements(By.XPATH, './/div[contains(@class, "GridLiteColumn")]')
+                if len(columns) >= 5:
+                    description = columns[2].text.strip()
+                    if "Journal Receipt" in description:
+                        journal_count += 1
+                        amount = float(columns[4].text.strip().replace('$', '').replace(',', ''))
+                        receipt_number = self.extract_receipt_number(description)
+                        if receipt_number and (smallest_journal is None or amount < smallest_journal[1]):
+                            smallest_journal = (row, amount, receipt_number)
+            except Exception as e:
+                self.logger.error(f"Error processing a row: {str(e)}")
+
+        if journal_count > 1 and smallest_journal:
+            self.refund_fee(smallest_journal[0], smallest_journal[2])
+            time.sleep(3)
+            self.logger.info(f'Finished refunding small journal with amount: ${smallest_journal[1]:.2f} and receipt number: {smallest_journal[2]}')
+        else:
+            self.logger.info('Finished processing, no small journal found or only one journal entry present')
+
+    def extract_receipt_number(self, description: str) -> Optional[int]:
+        match = re.search(r'Journal Receipt #(\d+)', description)
+        if match:
+            return int(match.group(1))
+        return None
 
     def remove_fees(self, fees_to_remove: List[str]):
         fees_removed = 0
@@ -91,13 +167,15 @@ class GuestBillManager:
 
 class ResWork(BaseAutomation):
     def __init__(self, username: str, password: str, csv_file_path: str, start_reservation_id: str = None, 
-                 has_headers: bool = False, update_mode: bool = False, remove_fees: bool = False, debug: bool = False):
+                 has_headers: bool = False, update_mode: bool = False, remove_fees: bool = False, remove_journal: bool = False, 
+                 debug: bool = False):
         super().__init__(username, password, debug)
         self.csv_file_path = csv_file_path
         self.start_reservation_id = start_reservation_id
         self.has_headers = has_headers
         self.update_mode = update_mode
         self.remove_fees = remove_fees
+        self.remove_journal = remove_journal
         self.csv_filename = "reservation_data.csv"
         self.csv_headers = ["ReservationId", "ResStatus", "ArriveDate", "DepartDate", "LegacyResId", "BaseRate", "TotalRate", "GuestBill", "ResNote", "ItemizedBill"]
         self.temp_filename = "temp_reservation_data.csv"
@@ -388,7 +466,7 @@ class ResWork(BaseAutomation):
             raise
 
     def search_reservation(self, reservation_id: str):
-        search_input = self.selenium_helper.wait_for_element(By.XPATH, XPaths.SEARCH_INPUT)
+        search_input = self.selenium_helper.wait_for_element(By.XPATH, RMS_XPaths.SEARCH_INPUT)
         if search_input:
             search_input.clear()
             search_input.send_keys(reservation_id)
@@ -483,7 +561,7 @@ class ResWork(BaseAutomation):
 
     def process_guest_bill(self, reservation_data):
         try:
-            guest_bill_link = self.selenium_helper.wait_for_element(By.XPATH, XPaths.GUEST_BILL_LINK)
+            guest_bill_link = self.selenium_helper.wait_for_element(By.XPATH, RMS_XPaths.GUEST_BILL_LINK)
             guest_bill_link.click()
             self.logger.info("Clicked on the guest bill link")
             time.sleep(3)
@@ -493,6 +571,9 @@ class ResWork(BaseAutomation):
 
             if self.remove_fees:
                 self.guest_bill_manager.remove_fees(fees_to_remove)
+
+            if self.remove_journal:
+                self.guest_bill_manager.remove_smallest_journal()
 
             itemized_bill = self.extract_itemized_bill(accounts_data_grid)
             reservation_data["ItemizedBill"] = itemized_bill
@@ -531,7 +612,7 @@ class ResWork(BaseAutomation):
 
     def close_guest_bill_modal(self):
         try:
-            close_button = self.selenium_helper.wait_for_element(By.XPATH, XPaths.CLOSE_GUEST_BILL_MODAL)
+            close_button = self.selenium_helper.wait_for_element(By.XPATH, RMS_XPaths.CLOSE_GUEST_BILL_MODAL)
             close_button.click()
         except TimeoutException:
             self.logger.error("Failed to find close button for guest bill modal")
@@ -543,11 +624,12 @@ def main():
     parser.add_argument("--headers", action="store_true", help="Specify if the source CSV file has headers")
     parser.add_argument("--update", action="store_true", help="Update mode: process only missing data")
     parser.add_argument("--removefees", action="store_true", help="Remove specified fees from guest bills")
+    parser.add_argument("--removejournal", action="store_true", help="Remove smallest journal from guest bill")
     args = parser.parse_args()
 
     setup_logging("res_work")
 
-    res_work = ResWork(args.username, args.password, args.csv_file, args.start, args.headers, args.update, args.removefees, args.debug)
+    res_work = ResWork(args.username, args.password, args.csv_file, args.start, args.headers, args.update, args.removefees, args.removejournal, args.debug)
     res_work.run()
 
 if __name__ == "__main__":

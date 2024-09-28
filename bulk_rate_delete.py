@@ -2,7 +2,7 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException
 import time
 from includes.logging_config import setup_logging
-from includes.constants import DEFAULT_TIMEOUT, XPaths
+from includes.constants import DEFAULT_TIMEOUT, RMS_XPaths
 from includes.BaseAutomation import BaseAutomation
 from includes.argument_parser_utility import create_base_parser
 
@@ -15,7 +15,7 @@ class BulkRateDelete(BaseAutomation):
 
     def get_grid_rows(self):
         try:
-            container = self.selenium_helper.wait_for_element(By.XPATH, XPaths.BULK_RATE_GRID_CONTAINER, timeout=DEFAULT_TIMEOUT)
+            container = self.selenium_helper.wait_for_element(By.XPATH, RMS_XPaths.BULK_RATE_GRID_CONTAINER, timeout=DEFAULT_TIMEOUT)
             return container.find_elements(By.XPATH, './/div[contains(@class, "GridLiteRow")]')
         except TimeoutException:
             self.logger.error("Timeout waiting for grid rows to load.")
@@ -42,11 +42,11 @@ class BulkRateDelete(BaseAutomation):
             if not self.select_first_row():
                 return False
 
-            if not self.selenium_helper.wait_and_click(By.XPATH, XPaths.BULK_RATE_DELETE_BUTTON, timeout=DEFAULT_TIMEOUT):
+            if not self.selenium_helper.wait_and_click(By.XPATH, RMS_XPaths.BULK_RATE_DELETE_BUTTON, timeout=DEFAULT_TIMEOUT):
                 self.logger.error("Failed to click delete button")
                 return False
             
-            if not self.selenium_helper.wait_and_click(By.XPATH, XPaths.BULK_RATE_CONFIRM_DELETE, timeout=DEFAULT_TIMEOUT):
+            if not self.selenium_helper.wait_and_click(By.XPATH, RMS_XPaths.BULK_RATE_CONFIRM_DELETE, timeout=DEFAULT_TIMEOUT):
                 self.logger.error("Failed to confirm deletion")
                 return False
             

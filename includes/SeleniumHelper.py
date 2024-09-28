@@ -20,7 +20,8 @@ class SeleniumHelper:
         self.logger = get_logger(__name__)
 
     @retry((TimeoutException, NoSuchElementException, StaleElementReferenceException))
-    def wait_for_element(self, by: By, value: str, timeout: int = DEFAULT_TIMEOUT) -> Optional[WebElement]:
+    def wait_for_element(self, by: By, value: str, timeout: int = DEFAULT_TIMEOUT, 
+                         _retry_tries: int = 3, _retry_delay: int = 1, _retry_backoff: int = 2) -> Optional[WebElement]:
         return WebDriverWait(self.driver, timeout).until(
             EC.presence_of_element_located((by, value))
         )
@@ -68,6 +69,14 @@ class SeleniumHelper:
         return WebDriverWait(self.driver, timeout).until(
             EC.invisibility_of_element_located((by, value))
         )
+    
+    def wait_for_page_load(self, timeout=30):
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: d.execute_script('return document.readyState') == 'complete'
+            )
+        except TimeoutException:
+            self.logger.warning(f"Page load timed out after {timeout} seconds")
         
     def wait_until_stable(self, by: By, value: str, timeout: float = 10, poll_frequency: float = 0.5) -> Optional[WebElement]:
         end_time = time.time() + timeout
