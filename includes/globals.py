@@ -83,7 +83,7 @@ def NB_login_with_2fa_and_wait(driver: webdriver.Chrome, username, password):
 def NB_login_nopause(driver: webdriver.Chrome, username: str, password: str):
     driver.get(NB_LOGIN_URL)
     
-    driver.find_element(By.ID, "login_code").send_keys(NB_CR_LOGIN_CODE)
+    driver.find_element(By.ID, "login_code").send_keys(NB_CO_LOGIN_CODE)
     driver.find_element(By.ID, "username").send_keys(username)
     driver.find_element(By.ID, "password").send_keys(password)
     

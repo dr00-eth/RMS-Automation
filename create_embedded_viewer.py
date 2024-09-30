@@ -27,4 +27,4 @@ def create_embedded_viewer(bookings_folder, template_file, output_file):
     print(f"Created embedded viewer: {output_file}")
 
 # Call this function in your main script
-create_embedded_viewer('cr_bookings', 'booking-viewer-template.html', 'cr-booking-viewer.html')
+create_embedded_viewer('bookings', 'booking-viewer-template.html', 'co-booking-viewer.html')

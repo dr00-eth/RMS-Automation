@@ -7,7 +7,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.common.exceptions import TimeoutException, WebDriverException, NoSuchWindowException
+from selenium.common.exceptions import TimeoutException
 from includes.logging_config import setup_logging, get_logger
 from includes.constants import DEFAULT_TIMEOUT, NB_RESERVATION_URL
 from includes.BaseAutomation import BaseAutomation
@@ -23,8 +23,8 @@ class ThreadedNewbookResDump(BaseAutomation):
         self.data = data
         self.num_tabs = num_tabs
         self.start_reservation_id = start_reservation_id
-        self.output_csv = "newbook_cr_res_dump_threaded.csv"
-        self.bookings_folder = "cr_bookings"
+        self.output_csv = "newbook_co_res_dump_threaded.csv"
+        self.bookings_folder = "bookings"
         self.work_queue = queue.Queue()
         self.result_queue = queue.Queue()
         self.batch_size = batch_size

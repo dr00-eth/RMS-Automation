@@ -176,7 +176,7 @@ class ResWork(BaseAutomation):
         self.update_mode = update_mode
         self.remove_fees = remove_fees
         self.remove_journal = remove_journal
-        self.csv_filename = "reservation_data.csv"
+        self.csv_filename = "missing_reservation_data.csv"
         self.csv_headers = ["ReservationId", "ResStatus", "ArriveDate", "DepartDate", "LegacyResId", "BaseRate", "TotalRate", "GuestBill", "ResNote", "ItemizedBill"]
         self.temp_filename = "temp_reservation_data.csv"
         self.guest_bill_manager = None
@@ -415,6 +415,10 @@ class ResWork(BaseAutomation):
             return {field: "" for field in self.csv_headers}
 
         reservation_data = self.extract_reservation_data(reservation_id)
+
+        if not reservation_data:
+            time.sleep(2)
+            reservation_data = self.extract_reservation_data(reservation_id)
         
         if existing_data:
             reservation_data = self.merge_existing_data(existing_data, reservation_data)
@@ -429,9 +433,25 @@ class ResWork(BaseAutomation):
 
         return cleaned_data
 
-    def search_and_load_reservation(self, reservation_id: str) -> bool:
-        self.search_reservation(reservation_id)
-        return self.is_reservation_loaded(reservation_id)
+    def search_and_load_reservation(self, reservation_id: str, max_attempts: int = 3, wait_time: int = 2) -> bool:
+        for attempt in range(max_attempts):
+            self.search_reservation(reservation_id)
+            time.sleep(wait_time)  # Wait for the page to load
+
+            # Check if we're on the search results page
+            if self.selenium_helper.is_element_visible_by_dimensions(By.CLASS_NAME, "ReservationSearchScreen", timeout=1):
+                self.logger.info(f"Search results detected for ResID: {reservation_id}")
+                if self.handle_search_results(reservation_id):
+                    return self.is_reservation_loaded(reservation_id)
+            else:
+                # We might be on a single reservation view
+                if self.is_reservation_loaded(reservation_id):
+                    return True
+
+            self.logger.warning(f"Attempt {attempt + 1}: Failed to load reservation {reservation_id}")
+
+        self.logger.error(f"Failed to load reservation {reservation_id} after {max_attempts} attempts")
+        return False
 
     def merge_existing_data(self, existing_data: Dict[str, str], new_data: Dict[str, str]) -> Dict[str, str]:
         for field in self.csv_headers:
@@ -475,29 +495,23 @@ class ResWork(BaseAutomation):
         else:
             self.logger.error("Failed to find search input")
 
-    def is_reservation_loaded(self, reservation_id: str) -> bool:
-        try:
-            # Wait for either the reservation view or search results to load
-            self.selenium_helper.wait_for_element(By.CLASS_NAME, "rms-portlet-caption", timeout=10)
-            
-            # Check if we're on the search results page
-            search_results = self.selenium_helper.is_element_visible_by_dimensions(By.CLASS_NAME, "ReservationSearchScreen", timeout=1)
-            
-            if not search_results:
-                print(f"Single Res Detected for ResID: {reservation_id}")
-                # We're likely on a single reservation view
-                res_id_element = self.selenium_helper.wait_for_element(By.CLASS_NAME, "res-screen-info-bar-resid")
-                return res_id_element and reservation_id in res_id_element.text
-            else:
-                print(f"Search Results Detected for ResID: {reservation_id}")
-                # We're on the search results page
-                return self.handle_search_results(reservation_id)
-        except TimeoutException:
-            self.logger.error("Timeout waiting for page to load")
-            return False
-        except Exception as e:
-            self.logger.error(f"Unexpected error in is_reservation_loaded: {str(e)}")
-            return False
+    def is_reservation_loaded(self, reservation_id: str, max_attempts: int = 3, wait_time: int = 2) -> bool:
+        for attempt in range(max_attempts):
+            try:
+                
+                loaded_res_id = self.selenium_helper.get_element_value(By.XPATH, "//*[@id='GridRow-Res_Id']/input")
+                if loaded_res_id == reservation_id:
+                    self.logger.info(f"Reservation {reservation_id} loaded successfully")
+                    return True
+                else:
+                    self.logger.warning(f"Attempt {attempt + 1}: Expected reservation {reservation_id}, but found {loaded_res_id}")
+                    time.sleep(wait_time)
+            except Exception as e:
+                self.logger.warning(f"Attempt {attempt + 1}: Error checking reservation ID: {str(e)}")
+                time.sleep(wait_time)
+        
+        self.logger.error(f"Failed to load reservation {reservation_id} after {max_attempts} attempts")
+        return False
 
     def handle_search_results(self, reservation_id: str) -> bool:
         try:
@@ -523,6 +537,7 @@ class ResWork(BaseAutomation):
                         self.logger.info(f"Found matching reservation: {reservation_id}")
                         # Click the anchor tag using wait_and_click
                         if self.selenium_helper.wait_and_click(By.XPATH, f"({anchor_xpath})[contains(text(), '{reservation_id}')]"):
+                            time.sleep(3)
                             # Wait for the reservation to load after clicking
                             return self.selenium_helper.wait_for_element(By.CLASS_NAME, "res-screen-info-bar-resid", timeout=10) is not None
                         else:
@@ -564,7 +579,7 @@ class ResWork(BaseAutomation):
             guest_bill_link = self.selenium_helper.wait_for_element(By.XPATH, RMS_XPaths.GUEST_BILL_LINK)
             guest_bill_link.click()
             self.logger.info("Clicked on the guest bill link")
-            time.sleep(3)
+            time.sleep(4)
 
             accounts_data_grid = self.selenium_helper.wait_for_element(By.CLASS_NAME, "AccountsDataGrid")
             self.logger.info("Found the AccountsDataGrid")
